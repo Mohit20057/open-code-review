@@ -5,6 +5,8 @@ package main
 
 import (
 	"testing"
+
+	"github.com/alibaba/open-code-review/internal/llm"
 )
 
 // TestApplyProviderField exercises every field branch of applyProviderField,
@@ -45,6 +47,24 @@ func TestApplyProviderField(t *testing.T) {
 		}
 		if err := applyProviderField("p", &e, "protocol", "providers.p.protocol", "not-a-protocol"); err == nil {
 			t.Error("expected error for invalid protocol")
+		}
+	})
+
+	t.Run("protocol clears stale ambient auth mode", func(t *testing.T) {
+		e := ProviderEntry{
+			Protocol:   "anthropic-bedrock",
+			AuthMode:   string(llm.AuthModeAmbient),
+			AWSRegion:  "us-west-2",
+			AWSProfile: "dev",
+		}
+		if err := applyProviderField("p", &e, "protocol", "providers.p.protocol", "openai"); err != nil {
+			t.Fatalf("set protocol: %v", err)
+		}
+		if e.AuthMode != "" {
+			t.Errorf("AuthMode = %q, want cleared", e.AuthMode)
+		}
+		if e.AWSRegion != "" || e.AWSProfile != "" {
+			t.Errorf("AWS settings = %q/%q, want cleared", e.AWSRegion, e.AWSProfile)
 		}
 	})
 

@@ -646,6 +646,10 @@ func applyProviderField(providerName string, entry *ProviderEntry, field, key, v
 			entry.AWSRegion = ""
 			entry.AWSProfile = ""
 		}
+		if normalized != llm.ProtocolAnthropicBedrock && entry.AuthMode == string(llm.AuthModeAmbient) {
+			fmt.Fprintf(os.Stderr, "[ocr] WARNING: clearing auth_mode on %q: protocol %q does not use an ambient credential chain\n", providerName, normalized)
+			entry.AuthMode = ""
+		}
 	case "auth_mode":
 		mode := llm.NormalizeAuthMode(value)
 		if err := llm.ValidateAuthMode(mode); err != nil {

@@ -637,6 +637,33 @@ func TestResolveEndpoint_ProviderAuthMetadata(t *testing.T) {
 	}
 }
 
+func TestResolveEndpoint_ProviderWorkloadIdentityWithoutAPIKey(t *testing.T) {
+	clearAllEnv(t)
+
+	cfg := configFile{
+		Provider: "openai-responses",
+		Providers: map[string]providerEntryConfig{
+			"openai-responses": {
+				Model:             "gpt-5.6-terra",
+				IdentityTokenFile: "C:/tokens/openai.jwt",
+				TokenExchangeURL:  "https://auth.example.com/token",
+			},
+		},
+	}
+	path, _ := writeResolverConfig(t, cfg)
+
+	ep, err := ResolveEndpoint(path)
+	if err != nil {
+		t.Fatalf("ResolveEndpoint: %v", err)
+	}
+	if ep.Token != "" {
+		t.Errorf("Token = %q, want empty before token exchange is implemented", ep.Token)
+	}
+	if ep.AuthMode != AuthModeWorkloadIdentity {
+		t.Errorf("AuthMode = %q, want %q", ep.AuthMode, AuthModeWorkloadIdentity)
+	}
+}
+
 func TestResolveEndpoint_ProviderAmbientAuthModeRequiresAmbientProvider(t *testing.T) {
 	clearAllEnv(t)
 

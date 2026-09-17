@@ -141,9 +141,12 @@ func ResolveEndpointWithOptions(configPath string, opts ResolveOptions) (Resolve
 		if err != nil {
 			return ResolvedEndpoint{}, fmt.Errorf("resolve %s: %w", strategy.name, err)
 		}
-		// An ambient-auth endpoint is complete without a URL or token: the
-		// transport supplies both. Everything else still needs all three.
-		complete := ep.Model != "" && (ep.AmbientAuth || (ep.URL != "" && ep.Token != ""))
+		// Ambient-auth and workload-identity endpoints are complete without a
+		// static token: the transport or token-exchange layer supplies it.
+		// Everything else still needs URL, token and model.
+		complete := ep.Model != "" && (ep.AmbientAuth ||
+			(ep.AuthMode == AuthModeWorkloadIdentity && ep.URL != "") ||
+			(ep.URL != "" && ep.Token != ""))
 		if ok && complete {
 			return finalizeResolvedEndpoint(strategy.name, ep, env), nil
 		}
@@ -496,6 +499,8 @@ func tryProviderConfig(cfg configFile, modelOverride string) (ResolvedEndpoint, 
 		switch {
 		case ambientAuth:
 			authMode = AuthModeAmbient
+		case entry.IdentityTokenFile != "" || entry.TokenExchangeURL != "":
+			authMode = AuthModeWorkloadIdentity
 		case apiKeyFromEnv:
 			authMode = AuthModeEnv
 		case apiKey != "":
@@ -510,7 +515,7 @@ func tryProviderConfig(cfg configFile, modelOverride string) (ResolvedEndpoint, 
 	// An ambient-auth provider is the exception — it has no key to configure,
 	// since credentials come from the environment's own chain and the request is
 	// signed rather than bearing a token.
-	if apiKey == "" && apiKeyCmd == "" && !ambientAuth {
+	if apiKey == "" && apiKeyCmd == "" && !ambientAuth && authMode != AuthModeWorkloadIdentity {
 		return ResolvedEndpoint{}, false, fmt.Errorf("provider %q has no api_key or api_key_cmd configured and no environment variable fallback found", cfg.Provider)
 	}
 
